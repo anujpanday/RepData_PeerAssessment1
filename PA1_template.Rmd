@@ -1,25 +1,151 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
+output:
   html_document:
     keep_md: true
 ---
 
 
 ## Loading and preprocessing the data
+```{r, echo = T}
+
+library(tidyverse)
+library(chron)
+setwd("~/Desktop/RepData_PeerAssessment1")
+
+dat<-read.csv("activity.csv") %>% 
+  mutate(date = as.Date(date, format = "%Y-%m-%d"))
+
+```
+
+
+## Histogram of the total number of steps taken each day
+```{r, echo = T}
+
+
+stepsbyday<-dat %>% 
+  group_by(date) %>% 
+  summarise(steps = sum(steps, na.rm=T))
+
+hist(stepsbyday$steps)
+```
+
+
+## What is mean and median total number of steps taken per day?
+```{r, echo = T}
+
+
+mean_median<-stepsbyday %>% 
+  ungroup() %>% 
+  summarise(mean_steps = mean(steps),
+            median_steps = median(steps))
+
+print(mean_median)
+
+```
+
+## Time series plit of the 5-munite interval and avg. number of steps taken
+
+```{r, echo = T}
+
+meanstepsbyinterval<-dat %>% 
+  group_by(interval) %>% 
+  summarise(meanstepsbyinterval = mean(steps, na.rm=T))
+
+with(meanstepsbyinterval, plot(x = interval, y = meanstepsbyinterval, type = "l"))
+
+```
+
+## The 5-minute interval that, on average, contains the maximum number of steps
+
+```{r, echo = T}
+meanstepsbyinterval %>% 
+  arrange(desc(meanstepsbyinterval)) %>% 
+  top_n(1) %>%
+  ungroup() %>% 
+  select(max_interval = interval, max_step_interval_steps = meanstepsbyinterval)
+```
 
 
 
-## What is mean total number of steps taken per day?
+## Calculate and report the total number of missing values in the dataset (i.e. the totalnumber of rows with NAs
+
+```{r, echo = T}
+
+table(is.na(dat$steps))
+```
+
+## Create a new dataset that is equal to the original dataset but with the missing data filled in.
 
 
+```{r}
 
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
+joined<-dat %>% 
+  inner_join(meanstepsbyinterval)
 
 
+dat_imputed<-joined %>%
+  mutate(steps = as.numeric(steps), 
+         steps = 
+           case_when(
+             is.na(steps)~meanstepsbyinterval,
+             TRUE~steps)) %>% 
+  select(-meanstepsbyinterval) %>%
+  as_tibble()
+
+print(dat_imputed)
+
+```
+
+##Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day.
+
+##Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r, echo = T}
+imputed_stepsbyday<-dat_imputed %>% 
+  group_by(date) %>% 
+  summarise(steps = sum(steps))
+
+
+hist(imputed_stepsbyday$steps)
+
+```
+
+##Calculate and report the mean and median total number of steps taken per day. 
+```{r, echo = T}
+
+imputed_stepsbyday %>% 
+  summarise(mean_stepsbyday = mean(steps), 
+            median_stepsbyday = median(steps))
+
+```
+
+
+##Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+The imputed data increases the center of the distribution and decreases the tails. It moves a lot of values from 0 to most common bucket (10000-15000)
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r, echo = T}
+
+weekdaysadded<-dat_imputed %>% 
+  mutate(weekday = weekdays(date), 
+         is_weekend = case_when(
+           weekday %in% c("Saturday", "Sunday") ~ "Weekend", 
+           TRUE ~ "Weekday"),
+         is_weekend = as.factor(is_weekend))
+
+weekdaysummarised<-weekdaysadded %>% 
+  group_by(is_weekend, interval) %>% 
+  summarise(avgstepsbyinterval = mean(steps))
+
+ggplot(weekdaysummarised, aes(x= interval, y = avgstepsbyinterval))+
+  geom_line()+
+  facet_wrap(~is_weekend, nrow = 2)
+
+```
+
+
+
+
